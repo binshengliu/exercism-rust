@@ -1,3 +1,4 @@
+use std::iter::FromIterator;
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
@@ -8,6 +9,12 @@ pub struct RibonucleicAcid {
 impl RibonucleicAcid {
     pub fn new(s: &str) -> Self {
         RibonucleicAcid { contents: s.to_string() }
+    }
+}
+
+impl FromIterator<char> for RibonucleicAcid {
+    fn from_iter<I: IntoIterator<Item=char>>(iter: I) -> Self {
+        RibonucleicAcid {contents: iter.into_iter().collect()}
     }
 }
 
@@ -31,17 +38,20 @@ impl DeoxyribonucleicAcid {
         }
     }
 
+    // See
+    // https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.collect
+    // and
+    // http://exercism.io/submissions/05f72a0b6c2f44199eeca556b0800b3b
+    // for the idea of collecting Result<Item, _> into
+    // Result<Collection, _>
     pub fn to_rna(&self) -> Result<RibonucleicAcid, String> {
-        if self.contents.chars().any(|c| !self.map.contains_key(&c)) {
-            Err(String::from("Unknown symbol found"))
-        } else {
-            Ok(RibonucleicAcid::new(
-                self.contents
-                    .chars()
-                    .map(|c| self.map[&c])
-                    .collect::<String>()
-                    .as_str(),
-            ))
-        }
+        self.contents
+            .chars()
+            .map(|c| if self.map.contains_key(&c) {
+                Ok(self.map[&c])
+            } else {
+                Err(format!("Unknown symbol {}", c))
+            })
+            .collect()
     }
 }
