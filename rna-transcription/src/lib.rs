@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct RibonucleicAcid {
     contents: String,
 }
@@ -8,12 +8,6 @@ pub struct RibonucleicAcid {
 impl RibonucleicAcid {
     pub fn new(s: &str) -> Self {
         RibonucleicAcid { contents: s.to_string() }
-    }
-}
-
-impl PartialEq for RibonucleicAcid {
-    fn eq(&self, other: &RibonucleicAcid) -> bool {
-        self.contents == other.contents
     }
 }
 
