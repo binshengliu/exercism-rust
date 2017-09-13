@@ -1,10 +1,18 @@
-use std::ops::Add;
+extern crate num;
 
-pub struct Triangle<T: Copy + PartialEq + PartialOrd + Add<Output = T>> {
+use num::Num;
+
+pub struct Triangle<T>
+where
+    T: Num + PartialOrd + Copy,
+{
     sides: [T; 3],
 }
 
-impl<T: Copy + PartialEq + PartialOrd + Add<Output = T>> Triangle<T> {
+impl<T> Triangle<T>
+where
+    T: Num + PartialOrd + Copy,
+{
     pub fn build(sides: [T; 3]) -> Result<Triangle<T>, String> {
         if Triangle::is_valid(&sides) {
             Ok(Triangle { sides })
