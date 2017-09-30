@@ -10,22 +10,22 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn turn_right(&mut self) {
-        *self = match *self {
-            Direction::North => Direction::East,
-            Direction::East => Direction::South,
-            Direction::South => Direction::West,
-            Direction::West => Direction::North,
-        };
+    pub fn right(&self) -> Direction {
+        match self {
+            &Direction::North => Direction::East,
+            &Direction::East => Direction::South,
+            &Direction::South => Direction::West,
+            &Direction::West => Direction::North,
+        }
     }
 
-    pub fn turn_left(&mut self) {
-        *self = match *self {
-            Direction::North => Direction::West,
-            Direction::East => Direction::North,
-            Direction::South => Direction::East,
-            Direction::West => Direction::South,
-        };
+    pub fn left(&self) -> Direction {
+        match self {
+            &Direction::North => Direction::West,
+            &Direction::East => Direction::North,
+            &Direction::South => Direction::East,
+            &Direction::West => Direction::South,
+        }
     }
 }
 
@@ -45,12 +45,12 @@ impl Robot {
     }
 
     pub fn turn_right(mut self) -> Self {
-        self.direction.turn_right();
+        self.direction = self.direction.right();
         self
     }
 
     pub fn turn_left(mut self) -> Self {
-        self.direction.turn_left();
+        self.direction = self.direction.left();
         self
     }
 
@@ -71,7 +71,7 @@ impl Robot {
                 'A' => self.advance(),
                 'L' => self.turn_left(),
                 'R' => self.turn_right(),
-                _ => self
+                _ => self,
             };
         }
 
