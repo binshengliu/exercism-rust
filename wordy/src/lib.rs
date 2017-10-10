@@ -12,7 +12,11 @@ impl WordProblem {
             return Err(());
         }
 
-        let mut parser = Parser::new(self.command.as_str());
+        let command = self.command
+            .replace("multiplied by", "multiplied_by")
+            .replace("divided by", "divided_by");
+
+        let mut parser = Parser::new(command.as_str());
 
         let mut ans = parser.next_num()?;
 
@@ -73,22 +77,8 @@ impl Parser {
         let mut iter = self.words[self.pos..].iter().map(|s| s.as_str());
         self.pos += 1;
         match iter.next() {
-            Some("multiplied") => {
-                self.pos += 1;
-                if iter.next() == Some("by") {
-                    Ok("*")
-                } else {
-                    Err(())
-                }
-            }
-            Some("divided") => {
-                self.pos += 1;
-                if iter.next() == Some("by") {
-                    Ok("/")
-                } else {
-                    Err(())
-                }
-            }
+            Some("multiplied_by") => Ok("*"),
+            Some("divided_by") => Ok("/"),
             Some("plus") => Ok("+"),
             Some("minus") => Ok("-"),
             _ => Err(()),
