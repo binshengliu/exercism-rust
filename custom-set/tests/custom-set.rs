@@ -1,0 +1,264 @@
+extern crate custom_set as set;
+
+use set::*;
+
+#[test]
+fn sets_with_no_elements_are_empty() {
+    let set: CustomSet<()> = CustomSet::new(vec![]);
+    assert!(set.is_empty());
+}
+
+#[test]
+fn sets_with_elements_are_not_empty() {
+    let set = CustomSet::new(vec![1]);
+    assert!(!set.is_empty());
+}
+
+#[test]
+fn nothing_is_contained_in_an_empty_set() {
+    let set = CustomSet::new(vec![]);
+    assert!(!set.contains(&1));
+}
+
+#[test]
+fn true_when_the_element_is_in_the_set() {
+    let set = CustomSet::new(vec![1, 2, 3]);
+    assert!(set.contains(&1));
+}
+
+#[test]
+fn false_when_the_element_is_not_in_the_set() {
+    let set = CustomSet::new(vec![1, 2, 3]);
+    assert!(!set.contains(&4));
+}
+
+#[test]
+fn empty_sets_are_subsets_of_each_other() {
+    let set1: CustomSet<()> = CustomSet::new(vec![]);
+    let set2: CustomSet<()> = CustomSet::new(vec![]);
+    assert!(set1.is_subset(&set2));
+    assert!(set2.is_subset(&set1));
+}
+
+#[test]
+fn empty_set_is_subset_of_non_empty_set() {
+    let set1 = CustomSet::new(vec![]);
+    let set2 = CustomSet::new(vec![1]);
+    assert!(set1.is_subset(&set2));
+}
+
+#[test]
+fn non_empty_set_is_not_subset_of_empty_set() {
+    let set1 = CustomSet::new(vec![1]);
+    let set2 = CustomSet::new(vec![]);
+    assert!(!set1.is_subset(&set2));
+}
+
+#[test]
+fn sets_with_same_elements_are_subsets() {
+    let set1 = CustomSet::new(vec![1, 2, 3]);
+    let set2 = CustomSet::new(vec![1, 2, 3]);
+    assert!(set1.is_subset(&set2));
+    assert!(set2.is_subset(&set1));
+}
+
+#[test]
+fn set_contained_in_other_set_is_a_subset() {
+    let set1 = CustomSet::new(vec![1, 2, 3]);
+    let set2 = CustomSet::new(vec![4, 1, 2, 3]);
+    assert!(set1.is_subset(&set2));
+}
+
+#[test]
+fn set_not_contained_in_other_set_is_not_a_subset_one() {
+    let set1 = CustomSet::new(vec![1, 2, 3]);
+    let set2 = CustomSet::new(vec![4, 1, 3]);
+    assert!(!set1.is_subset(&set2));
+}
+
+#[test]
+fn empty_sets_are_disjoint_with_each_other() {
+    let set1: CustomSet<()> = CustomSet::new(vec![]);
+    let set2: CustomSet<()> = CustomSet::new(vec![]);
+    assert!(set1.is_disjoint(&set2));
+    assert!(set2.is_disjoint(&set1));
+}
+
+#[test]
+fn empty_set_disjoint_with_non_empty_set() {
+    let set1 = CustomSet::new(vec![]);
+    let set2 = CustomSet::new(vec![1]);
+    assert!(set1.is_disjoint(&set2));
+}
+
+#[test]
+fn non_empty_set_disjoint_with_empty_set() {
+    let set1 = CustomSet::new(vec![1]);
+    let set2 = CustomSet::new(vec![]);
+    assert!(set1.is_disjoint(&set2));
+}
+
+#[test]
+fn sets_with_one_element_in_common_are_not_disjoint() {
+    let set1 = CustomSet::new(vec![1, 2]);
+    let set2 = CustomSet::new(vec![2, 3]);
+    assert!(!set1.is_disjoint(&set2));
+    assert!(!set2.is_disjoint(&set1));
+}
+
+#[test]
+fn sets_with_no_elements_in_common_are_disjoint() {
+    let set1 = CustomSet::new(vec![1, 2]);
+    let set2 = CustomSet::new(vec![3, 4]);
+    assert!(set1.is_disjoint(&set2));
+    assert!(set2.is_disjoint(&set1));
+}
+
+#[test]
+fn empty_sets_are_equal() {
+    let set1: CustomSet<()> = CustomSet::new(vec![]);
+    let set2: CustomSet<()> = CustomSet::new(vec![]);
+    assert_eq!(set1, set2);
+}
+
+#[test]
+fn empty_set_is_not_equal_to_a_non_empty_set() {
+    let set1 = CustomSet::new(vec![]);
+    let set2 = CustomSet::new(vec![1, 2, 3]);
+    assert_ne!(set1, set2);
+}
+
+#[test]
+fn non_empty_set_is_not_equal_to_an_empty_set() {
+    let set1 = CustomSet::new(vec![1, 2, 3]);
+    let set2 = CustomSet::new(vec![]);
+    assert_ne!(set1, set2);
+}
+
+#[test]
+fn sets_with_the_same_elements_are_equal() {
+    let set1 = CustomSet::new(vec![1, 2]);
+    let set2 = CustomSet::new(vec![2, 1]);
+    assert_eq!(set1, set2);
+}
+
+#[test]
+fn sets_with_different_elements_are_not_equal() {
+    let set1 = CustomSet::new(vec![1, 2, 3]);
+    let set2 = CustomSet::new(vec![2, 1, 4]);
+    assert_ne!(set1, set2);
+}
+
+#[test]
+fn add_to_empty_set() {
+    let mut set = CustomSet::new(vec![]);
+    set.add(3);
+    assert_eq!(set, CustomSet::new(vec![3]));
+}
+
+#[test]
+fn add_to_non_empty_set() {
+    let mut set = CustomSet::new(vec![1, 2, 4]);
+    set.add(3);
+    assert_eq!(set, CustomSet::new(vec![1, 2, 3, 4]));
+}
+
+#[test]
+fn add_existing_element() {
+    let mut set = CustomSet::new(vec![1, 2, 3]);
+    set.add(3);
+    assert_eq!(set, CustomSet::new(vec![1, 2, 3]));
+}
+
+#[test]
+fn intersecting_empty_sets_return_empty_set() {
+    let set1: CustomSet<()> = CustomSet::new(vec![]);
+    let set2: CustomSet<()> = CustomSet::new(vec![]);
+    assert_eq!(set1.intersection(&set2), CustomSet::new(vec![]));
+}
+
+#[test]
+fn intersecting_empty_set_with_non_empty_returns_empty_set() {
+    let set1 = CustomSet::new(vec![]);
+    let set2 = CustomSet::new(vec![3, 2, 5]);
+    assert_eq!(set1.intersection(&set2), CustomSet::new(vec![]));
+}
+
+#[test]
+fn intersecting_non_empty_set_with_empty_returns_empty_set() {
+    let set1 = CustomSet::new(vec![1, 2, 3, 4]);
+    let set2 = CustomSet::new(vec![]);
+    assert_eq!(set1.intersection(&set2), CustomSet::new(vec![]));
+}
+
+#[test]
+fn intersection_of_two_sets_with_no_shared_elements_is_an_empty_set() {
+    let set1 = CustomSet::new(vec![1, 2, 3]);
+    let set2 = CustomSet::new(vec![4, 5, 6]);
+    assert_eq!(set1.intersection(&set2), CustomSet::new(vec![]));
+    assert_eq!(set2.intersection(&set1), CustomSet::new(vec![]));
+}
+
+#[test]
+fn intersection_of_two_sets_with_shared_elements_is_a_set_of_the_shared_elements() {
+    let set1 = CustomSet::new(vec![1, 2, 3, 4]);
+    let set2 = CustomSet::new(vec![3, 2, 5]);
+    assert_eq!(set1.intersection(&set2), CustomSet::new(vec![2, 3]));
+    assert_eq!(set2.intersection(&set1), CustomSet::new(vec![2, 3]));
+}
+
+#[test]
+fn difference_of_two_empty_sets_is_empty_set() {
+    let set1: CustomSet<()> = CustomSet::new(vec![]);
+    let set2: CustomSet<()> = CustomSet::new(vec![]);
+    assert_eq!(set1.difference(&set2), CustomSet::new(vec![]));
+}
+
+#[test]
+fn difference_of_an_empty_and_non_empty_set_is_an_empty_set() {
+    let set1 = CustomSet::new(vec![]);
+    let set2 = CustomSet::new(vec![3, 2, 5]);
+    assert_eq!(set1.difference(&set2), CustomSet::new(vec![]));
+}
+
+#[test]
+fn difference_of_a_non_empty_set_and_empty_set_is_the_non_empty_set() {
+    let set1 = CustomSet::new(vec![1, 2, 3, 4]);
+    let set2 = CustomSet::new(vec![]);
+    assert_eq!(set1.difference(&set2), CustomSet::new(vec![1, 2, 3, 4]));
+}
+
+#[test]
+fn difference_of_two_non_empty_sets_is_elements_only_in_first_set_one() {
+    let set1 = CustomSet::new(vec![3, 2, 1]);
+    let set2 = CustomSet::new(vec![2, 4]);
+    assert_eq!(set1.difference(&set2), CustomSet::new(vec![1, 3]));
+}
+
+#[test]
+fn union_of_two_empty_sets_is_empty_set() {
+    let set1: CustomSet<()> = CustomSet::new(vec![]);
+    let set2: CustomSet<()> = CustomSet::new(vec![]);
+    assert_eq!(set1.union(&set2), CustomSet::new(vec![]));
+}
+
+#[test]
+fn union_of_empty_set_and_non_empty_set_is_all_elements() {
+    let set1 = CustomSet::new(vec![]);
+    let set2 = CustomSet::new(vec![2]);
+    assert_eq!(set1.union(&set2), CustomSet::new(vec![2]));
+}
+
+#[test]
+fn union_of_non_empty_set_and_empty_set_is_the_non_empty_set() {
+    let set1 = CustomSet::new(vec![1, 3]);
+    let set2 = CustomSet::new(vec![]);
+    assert_eq!(set1.union(&set2), CustomSet::new(vec![1, 3]));
+}
+
+#[test]
+fn union_of_non_empty_sets_contains_all_unique_elements() {
+    let set1 = CustomSet::new(vec![1, 3]);
+    let set2 = CustomSet::new(vec![2, 3]);
+    assert_eq!(set1.union(&set2), CustomSet::new(vec![3, 2, 1]));
+}
