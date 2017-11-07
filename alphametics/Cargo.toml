@@ -5,3 +5,4 @@ version = "1.0.0"
 [dependencies]
 permutohedron = "0.2.2"
 meval = "0.0.9"
+itertools = "0.7.2"

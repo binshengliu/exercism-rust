@@ -1,6 +1,10 @@
 extern crate meval;
+extern crate itertools;
+extern crate permutohedron;
 
 use std::collections::HashMap;
+use itertools::Itertools;
+use permutohedron::Heap;
 
 pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
     let solver = Solver::new(puzzle);
@@ -41,11 +45,11 @@ impl Solver {
         }
     }
 
-    fn try(&self, digits: &Vec<char>) -> Option<HashMap<char, u8>> {
+    fn try(&self, digits: &Vec<&char>) -> Option<HashMap<char, u8>> {
         let map: HashMap<char, char> = self.letters
             .iter()
             .cloned()
-            .zip(digits.iter().cloned())
+            .zip(digits.iter().cloned().cloned())
             .collect();
 
         let leading_zero = map.iter().any(|(key, &value)| {
@@ -78,39 +82,18 @@ impl Solver {
         }
     }
 
-    pub fn iterate_permutations(
-        &self,
-        digits: Vec<char>,
-        n: usize,
-        perm: Vec<char>,
-    ) -> Option<HashMap<char, u8>> {
-        if n == 0 {
-            return self.try(&perm);
-        }
-        for (i, &c) in digits.iter().enumerate() {
-            let subset: Vec<char> = digits[0..i]
-                .iter()
-                .chain(digits[i + 1..].iter())
-                .cloned()
-                .collect();
-            let result = self.iterate_permutations(
-                subset,
-                n - 1,
-                perm.iter()
-                    .chain(vec![c].iter())
-                    .cloned()
-                    .collect::<Vec<_>>(),
-            );
-            if result.is_some() {
-                return result;
-            }
-        }
-        None
-    }
-
     pub fn solve(&self) -> Option<HashMap<char, u8>> {
         let digits: Vec<char> =
             vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-        self.iterate_permutations(digits, self.letters.len(), Vec::new())
+        for mut combination in digits.iter().combinations(self.letters.len()) {
+            let heap = Heap::new(&mut combination);
+            for permutation in heap {
+                let result = self.try(&permutation);
+                if result.is_some() {
+                    return result;
+                }
+            }
+        }
+        None
     }
 }
