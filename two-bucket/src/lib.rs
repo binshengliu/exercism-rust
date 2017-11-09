@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::cmp::Ordering::*;
 
 #[derive(Hash, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Bucket {
@@ -26,26 +25,16 @@ pub fn solve(
     goal: u8,
     start_bucket: &Bucket,
 ) -> BucketStats {
-    let actions: Vec<Box<fn(State) -> State>> = vec![
-        Box::new(fill_one),
-        Box::new(fill_two),
-        Box::new(pour_one_to_two),
-        Box::new(pour_two_to_one),
-        Box::new(empty_one),
-        Box::new(empty_two),
-    ];
-
     let initial_state = State::init(capacity_1, capacity_2, *start_bucket);
     let states: HashSet<(u8, u8)> = [(0, 0), (capacity_1, 0), (0, capacity_2)]
         .iter()
         .cloned()
         .collect();
 
-    println!("\nInitial state: {}", initial_state);
     let (final_state, moves) = if check(initial_state, goal) {
         (initial_state, 0)
     } else {
-        proceed(initial_state, states, &actions, goal).unwrap()
+        proceed(initial_state, states, goal).unwrap()
     };
 
     to_stats(final_state, goal, moves + 1)
@@ -86,19 +75,16 @@ impl State {
             actual2: a2,
         }
     }
-}
 
-use std::fmt;
-impl fmt::Display for State {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({}/{}, {}/{})",
-            self.actual1,
-            self.capacity1,
-            self.actual2,
-            self.capacity2
-        )
+    pub fn next(&self) -> Vec<State> {
+        vec![
+            fill_one(*self),
+            fill_two(*self),
+            pour_one_to_two(*self),
+            pour_two_to_one(*self),
+            empty_one(*self),
+            empty_two(*self),
+        ]
     }
 }
 
@@ -111,34 +97,30 @@ fn check(state: State, goal: u8) -> bool {
 fn proceed(
     initial_state: State,
     states: HashSet<(u8, u8)>,
-    actions: &Vec<Box<fn(State) -> State>>,
     goal: u8,
 ) -> Option<(State, u8)> {
     let mut states = states;
     let mut current_layer: Vec<State> = vec![initial_state];
-    let mut next_layer: Vec<State> = Vec::new();
     let mut nlayers = 1;
     while !current_layer.is_empty() {
-        println!("Layer #{}:", nlayers);
-        for &state in current_layer.iter() {
-            for action in actions.iter() {
-                let new = action(state);
-                if !states.insert((new.actual1, new.actual2)) {
-                    // println!("Skip.");
-                    continue;
-                }
-                if check(new, goal) {
-                    println!("{} !!!!!", new);
-                    return Some((new, nlayers));
-                }
-                println!("{}", new);
-                next_layer.push(new);
-            }
+        let mut found: Option<(State, u8)> = None;
+        // There may be some waste of computation here to collect the
+        // States after the correct one is found. But it's not
+        // significant compared to the entire running time.
+        let next_layer: Vec<State> = current_layer
+            .iter()
+            .flat_map(|&state| state.next())
+            .filter(|state| states.insert((state.actual1, state.actual2)))
+            .inspect(|&state| if check(state, goal) {
+                found = Some((state, nlayers));
+            })
+            .collect();
+
+        if found.is_some() {
+            return found;
         }
         nlayers += 1;
         current_layer = next_layer;
-        next_layer = Vec::new();
-        println!("");
     }
 
     None
@@ -155,32 +137,16 @@ fn fill_two(mut state: State) -> State {
 }
 
 fn pour_one_to_two(mut state: State) -> State {
-    let diff = state.capacity2 - state.actual2;
-    match state.actual1.cmp(&diff) {
-        Less | Equal => {
-            state.actual2 += state.actual1;
-            state.actual1 = 0;
-        }
-        Greater => {
-            state.actual2 += diff;
-            state.actual1 -= diff;
-        }
-    }
+    let diff = u8::min(state.actual1, state.capacity2 - state.actual2);
+    state.actual1 -= diff;
+    state.actual2 += diff;
     state
 }
 
 fn pour_two_to_one(mut state: State) -> State {
-    let diff = state.capacity1 - state.actual1;
-    match state.actual2.cmp(&diff) {
-        Less | Equal => {
-            state.actual1 += state.actual2;
-            state.actual2 = 0;
-        }
-        Greater => {
-            state.actual1 += diff;
-            state.actual2 -= diff;
-        }
-    }
+    let diff = u8::min(state.actual2, state.capacity1 - state.actual1);
+    state.actual1 += diff;
+    state.actual2 -= diff;
     state
 }
 
