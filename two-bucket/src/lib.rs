@@ -27,95 +27,130 @@ pub fn solve(
     start_bucket: &Bucket,
 ) -> BucketStats {
     let actions: Vec<Box<fn(State) -> State>> = vec![
-        Box::new(fill),
+        Box::new(fill_one),
+        Box::new(fill_two),
         Box::new(pour_one_to_two),
         Box::new(pour_two_to_one),
         Box::new(empty_one),
         Box::new(empty_two),
     ];
-    let state = State {
-        capacity1: capacity_1,
-        actual1: 0,
-        capacity2: capacity_2,
-        actual2: 0,
-        fill: *start_bucket,
-    };
-    let mut solver = Solver {
-        states: HashSet::new(),
-        moves: 0,
-        goal: goal,
-    };
-    println!("Init: {:?}", state);
-    let result = solver.proceed(state, &actions).unwrap();
-    let (goal_bucket, other_bucket) = if result.actual1 == goal {
-        (Bucket::One, result.actual2)
+
+    let initial_state = State::init(capacity_1, capacity_2, *start_bucket);
+    let states: HashSet<(u8, u8)> = [(0, 0), (capacity_1, 0), (0, capacity_2)]
+        .iter()
+        .cloned()
+        .collect();
+
+    println!("\nInitial state: {}", initial_state);
+    let (final_state, moves) = if check(initial_state, goal) {
+        (initial_state, 0)
     } else {
-        (Bucket::Two, result.actual1)
+        proceed(initial_state, states, &actions, goal).unwrap()
+    };
+
+    to_stats(final_state, goal, moves + 1)
+}
+
+fn to_stats(final_state: State, goal: u8, moves: u8) -> BucketStats {
+    let (goal_bucket, other_bucket) = if final_state.actual1 == goal {
+        (Bucket::One, final_state.actual2)
+    } else {
+        (Bucket::Two, final_state.actual1)
     };
     BucketStats {
-        moves: solver.moves,
+        moves: moves,
         goal_bucket: goal_bucket,
         other_bucket: other_bucket,
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Copy, Clone)]
 struct State {
     capacity1: u8,
     actual1: u8,
     capacity2: u8,
     actual2: u8,
-    fill: Bucket,
 }
 
+impl State {
+    pub fn init(c1: u8, c2: u8, start_bucket: Bucket) -> State {
+        let (a1, a2) = match start_bucket {
+            Bucket::One => (c1, 0),
+            Bucket::Two => (0, c2),
+        };
 
-fn check(goal: u8, state: State) -> bool {
-    goal == state.actual1 || goal == state.actual2
-}
-
-struct Solver {
-    states: HashSet<State>,
-    moves: u8,
-    goal: u8,
-}
-
-impl Solver {
-    pub fn proceed(
-        &mut self,
-        state: State,
-        actions: &Vec<Box<fn(State) -> State>>,
-    ) -> Option<State> {
-        for action in actions.iter() {
-            let new = action(state);
-
-            if self.states.contains(&new) {
-                println!("Repeated state. Skip.");
-                continue;
-            }
-
-            self.moves += 1;
-            self.states.insert(new);
-            if check(self.goal, new) {
-                return Some(new);
-            }
-            if let Some(result) = self.proceed(new, actions) {
-                return Some(result);
-            }
-            self.moves -= 1;
+        State {
+            capacity1: c1,
+            actual1: a1,
+            capacity2: c2,
+            actual2: a2,
         }
-
-        None
     }
 }
 
+use std::fmt;
+impl fmt::Display for State {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "({}/{}, {}/{})",
+            self.actual1,
+            self.capacity1,
+            self.actual2,
+            self.capacity2
+        )
+    }
+}
 
+fn check(state: State, goal: u8) -> bool {
+    goal == state.actual1 || goal == state.actual2
+}
 
-fn fill(mut state: State) -> State {
-    match state.fill {
-        Bucket::One => state.actual1 = state.capacity1,
-        Bucket::Two => state.actual2 = state.capacity2,
-    };
-    println!("After Fill {:?}", state);
+// See https://math.stackexchange.com/a/649161/479983 for the
+// intuition of the breadth-first algorithm.
+fn proceed(
+    initial_state: State,
+    states: HashSet<(u8, u8)>,
+    actions: &Vec<Box<fn(State) -> State>>,
+    goal: u8,
+) -> Option<(State, u8)> {
+    let mut states = states;
+    let mut current_layer: Vec<State> = vec![initial_state];
+    let mut next_layer: Vec<State> = Vec::new();
+    let mut nlayers = 1;
+    while !current_layer.is_empty() {
+        println!("Layer #{}:", nlayers);
+        for &state in current_layer.iter() {
+            for action in actions.iter() {
+                let new = action(state);
+                if !states.insert((new.actual1, new.actual2)) {
+                    // println!("Skip.");
+                    continue;
+                }
+                if check(new, goal) {
+                    println!("{} !!!!!", new);
+                    return Some((new, nlayers));
+                }
+                println!("{}", new);
+                next_layer.push(new);
+            }
+        }
+        nlayers += 1;
+        current_layer = next_layer;
+        next_layer = Vec::new();
+        println!("");
+    }
+
+    None
+}
+
+fn fill_one(mut state: State) -> State {
+    state.actual1 = state.capacity1;
+    state
+}
+
+fn fill_two(mut state: State) -> State {
+    state.actual2 = state.capacity2;
     state
 }
 
@@ -131,7 +166,6 @@ fn pour_one_to_two(mut state: State) -> State {
             state.actual1 -= diff;
         }
     }
-    println!("After Pour 1 -> 2 {:?}", state);
     state
 }
 
@@ -147,18 +181,15 @@ fn pour_two_to_one(mut state: State) -> State {
             state.actual2 -= diff;
         }
     }
-    println!("After Pour 2 -> 1 {:?}", state);
     state
 }
 
 fn empty_one(mut state: State) -> State {
     state.actual1 = 0;
-    println!("After Empty 1 {:?}", state);
     state
 }
 
 fn empty_two(mut state: State) -> State {
     state.actual2 = 0;
-    println!("After Empty 2 {:?}", state);
     state
 }
