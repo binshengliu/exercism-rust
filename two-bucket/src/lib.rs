@@ -104,15 +104,17 @@ fn proceed(
     let mut nlayers = 1;
     while !current_layer.is_empty() {
         let mut found: Option<(State, u8)> = None;
-        // There may be some waste of computation here to collect the
-        // States after the correct one is found. But it's not
-        // significant compared to the entire running time.
+        // Using scan instead of inspect to abort the iteration as
+        // soon as the solution is found.
         let next_layer: Vec<State> = current_layer
             .iter()
             .flat_map(|&state| state.next())
             .filter(|state| states.insert((state.actual1, state.actual2)))
-            .inspect(|&state| if check(state, goal) {
+            .scan(0, |_, state| if check(state, goal) {
                 found = Some((state, nlayers));
+                None
+            } else {
+                Some(state)
             })
             .collect();
 
