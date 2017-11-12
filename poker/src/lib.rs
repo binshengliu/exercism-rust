@@ -1,6 +1,5 @@
 extern crate itertools;
 use itertools::Itertools;
-use std::cmp::Ordering;
 use Category::*;
 
 /// Given a list of poker hands, return a list of those hands which win.
@@ -9,17 +8,16 @@ use Category::*;
 /// the winning hand(s) as were passed in, not reconstructed strings which happen to be equal.
 pub fn winning_hands<'a>(input: &[&'a str]) -> Option<Vec<&'a str>> {
     let mut hands: Vec<_> = input.iter().map(|s| Hand::new(s)).collect();
-    hands.sort();
+    hands.sort_by(|h1, h2| h2.category.cmp(&h1.category));
     let result = hands
         .iter()
-        .rev()
-        .take_while(|&h| Some(h) == hands.last())
-        .map(|h| h.cards)
+        .take_while(|&h| &h.category == &hands[0].category)
+        .map(|h| h.input)
         .collect();
     Some(result)
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(Copy, Hash, Eq, PartialEq, Clone)]
 enum Suit {
     Club,
     Diamond,
@@ -56,56 +54,49 @@ impl<'a> From<&'a str> for Card {
     }
 }
 
-impl PartialEq for Card {
-    fn eq(&self, other: &Card) -> bool {
-        self.value == other.value
-    }
-}
-
-impl PartialOrd for Card {
-    fn partial_cmp(&self, other: &Card) -> Option<Ordering> {
-        Some(self.cmp(&other))
-    }
-}
-
-impl Eq for Card {}
-
-impl Ord for Card {
-    fn cmp(&self, other: &Card) -> Ordering {
-        self.value.cmp(&other.value)
-    }
-}
-
 #[derive(PartialOrd, Ord, Debug, Clone, PartialEq, Eq)]
 enum Category {
-    HighCard { kickers: Vec<u8> },
-    OnePair { pair: u8, kickers: Vec<u8> },
-    TwoPair { high: u8, low: u8, kicker: u8 },
-    ThreeOfAKind { triplet: u8, kickers: Vec<u8> },
-    Straight { highest: u8 },
-    Flush { kickers: Vec<u8> },
-    FullHouse { triplet: u8, pair: u8 },
-    FourOfAKind { quad: u8, kicker: u8 },
-    StraightFlush { highest: u8 },
+    HighCard(Vec<u8>),
+    OnePair(Vec<u8>),
+    TwoPair(Vec<u8>),
+    ThreeOfAKind(Vec<u8>),
+    Straight(u8),
+    Flush(Vec<u8>),
+    FullHouse(Vec<u8>),
+    FourOfAKind(Vec<u8>),
+    StraightFlush(u8),
 }
 
+use std::collections::HashMap;
 impl Category {
     pub fn new(cards: &[Card]) -> Category {
-        straight_flush(cards)
-            .or(four_of_a_kind(cards))
-            .or(full_house(cards))
-            .or(flush(cards))
-            .or(straight(cards))
-            .or(three_of_a_kind(cards))
-            .or(two_pair(cards))
-            .or(one_pair(cards))
-            .unwrap_or(high_card(cards))
+        let mut value_map: HashMap<u8, usize> = HashMap::new();
+        let mut suit_map: HashMap<Suit, usize> = HashMap::new();
+        for card in cards.iter() {
+            *value_map.entry(card.value).or_insert(0) += 1;
+            *suit_map.entry(card.suit).or_insert(0) += 1;
+        }
+        let values = value_map.into_iter().sorted_by(|&(k1, v1), &(k2, v2)| {
+            v2.cmp(&v1).then(k2.cmp(&k1))
+        });
+        let suits = suit_map.into_iter().sorted_by(
+            |&(_, v1), &(_, v2)| v2.cmp(&v1),
+        );
+        straight_flush(&values, &suits)
+            .or(four_of_a_kind(&values))
+            .or(full_house(&values))
+            .or(flush(&values, &suits))
+            .or(straight(&values))
+            .or(three_of_a_kind(&values))
+            .or(two_pair(&values))
+            .or(one_pair(&values))
+            .unwrap_or(high_card(&values))
     }
 }
 
 struct Hand<'a> {
     // The cards are always sorted
-    cards: &'a str,
+    input: &'a str,
     category: Category,
 }
 
@@ -114,169 +105,87 @@ impl<'a> Hand<'a> {
         let cards: Vec<_> =
             input.split_whitespace().map(|s| Card::from(s)).collect();
         let category = Category::new(&cards);
-        Hand {
-            cards: input,
-            category: category,
-        }
+        Hand { input, category }
     }
 }
 
-impl<'a> PartialEq for Hand<'a> {
-    fn eq(&self, other: &Hand) -> bool {
-        self.category == other.category
-    }
-}
-
-impl<'a> Eq for Hand<'a> {}
-
-impl<'a> PartialOrd for Hand<'a> {
-    fn partial_cmp(&self, other: &Hand) -> Option<Ordering> {
-        Some(self.cmp(&other))
-    }
-}
-
-impl<'a> Ord for Hand<'a> {
-    fn cmp(&self, other: &Hand) -> Ordering {
-        self.category.cmp(&other.category)
-    }
-}
-
-fn straight_flush(cards: &[Card]) -> Option<Category> {
-    flush(cards).and_then(|_| {
-        straight(cards).and_then(|category| match category {
-            Straight { highest } => Some(StraightFlush { highest: highest }),
+fn straight_flush(
+    values: &Vec<(u8, usize)>,
+    suits: &Vec<(Suit, usize)>,
+) -> Option<Category> {
+    flush(values, suits).and_then(|_| {
+        straight(values).and_then(|category| match category {
+            Straight(value) => Some(StraightFlush(value)),
             _ => panic!("The type must be Straight"),
         })
     })
 }
 
-fn four_of_a_kind(cards: &[Card]) -> Option<Category> {
-    let cards = cards.iter().sorted();
-    let (quad, kicker) = if cards[0].value == cards[3].value {
-        (cards[0].value, cards[4].value)
-    } else if cards[1].value == cards[4].value {
-        (cards[1].value, cards[0].value)
-    } else {
-        return None;
-    };
-
-    Some(FourOfAKind { quad, kicker })
-}
-
-fn full_house(cards: &[Card]) -> Option<Category> {
-    let cards = cards.iter().sorted();
-    let (triplet, pair) = if cards[0].value == cards[2].value &&
-        cards[3].value == cards[4].value
-    {
-        (cards[0].value, cards[3].value)
-    } else if cards[0].value == cards[1].value &&
-               cards[2].value == cards[4].value
-    {
-        (cards[2].value, cards[0].value)
-    } else {
-        return None;
-    };
-    Some(FullHouse { triplet, pair })
-}
-
-fn flush(cards: &[Card]) -> Option<Category> {
-    if cards[1..].iter().all(|c| cards[0].suit == c.suit) {
-        let cards = cards.iter().sorted_by(|c1, c2| c2.value.cmp(&c1.value));
-        Some(Flush { kickers: cards.iter().map(|c| c.value).collect() })
+fn four_of_a_kind(values: &Vec<(u8, usize)>) -> Option<Category> {
+    if values.iter().map(|v| v.1).collect_vec() == [4, 1] {
+        Some(FourOfAKind(values.into_iter().map(|v| v.0).collect()))
     } else {
         None
     }
 }
 
-fn straight(cards: &[Card]) -> Option<Category> {
-    let cards = cards.iter().sorted();
-    let first = cards[0].value;
-    if cards.iter().enumerate().skip(1).all(|(i, c)| {
-        first + i as u8 == c.value
-    })
-    {
-        Some(Straight { highest: cards[4].value })
-    } else if cards.iter().map(|c| c.value).collect_vec() == &[2, 3, 4, 5, 14] {
-        Some(Straight { highest: 5 })
+fn full_house(values: &Vec<(u8, usize)>) -> Option<Category> {
+    if values.iter().map(|v| v.1).collect_vec() == [3, 2] {
+        Some(FullHouse(values.into_iter().map(|v| v.0).collect()))
     } else {
         None
     }
 }
 
-fn three_of_a_kind(cards: &[Card]) -> Option<Category> {
-    let cards = cards.iter().sorted();
-    if cards[0].value == cards[2].value {
-        Some(ThreeOfAKind {
-            triplet: cards[0].value,
-            kickers: vec![cards[4].value, cards[3].value],
-        })
-    } else if cards[1].value == cards[3].value {
-        Some(ThreeOfAKind {
-            triplet: cards[1].value,
-            kickers: vec![cards[4].value, cards[0].value],
-        })
-    } else if cards[2].value == cards[4].value {
-        Some(ThreeOfAKind {
-            triplet: cards[2].value,
-            kickers: vec![cards[1].value, cards[0].value],
-        })
+fn flush(
+    values: &Vec<(u8, usize)>,
+    suits: &Vec<(Suit, usize)>,
+) -> Option<Category> {
+    if suits.len() == 1 {
+        Some(Flush(values.into_iter().map(|v| v.0).collect()))
     } else {
         None
     }
 }
 
-fn two_pair(cards: &[Card]) -> Option<Category> {
-    let cards = cards.iter().sorted();
-    let (pair1, pair2, kicker) = if cards[0].value == cards[1].value &&
-        cards[2].value == cards[3].value
-    {
-        (cards[0].value, cards[2].value, cards[4].value)
-    } else if cards[0].value == cards[1].value &&
-               cards[3].value == cards[4].value
-    {
-        (cards[0].value, cards[3].value, cards[2].value)
-    } else if cards[1].value == cards[2].value &&
-               cards[3].value == cards[4].value
-    {
-        (cards[1].value, cards[3].value, cards[0].value)
-    } else {
-        return None;
-    };
-
-    Some(TwoPair {
-        high: pair1.max(pair2),
-        low: pair1.min(pair2),
-        kicker: kicker,
+fn straight(values: &Vec<(u8, usize)>) -> Option<Category> {
+    let lowest = values.last().unwrap().0;
+    if values.iter().rev().enumerate().skip(1).all(|(i, c)| {
+        lowest + i as u8 == c.0
     })
+    {
+        Some(Straight(values[0].0))
+    } else if values.iter().map(|c| c.0).collect_vec() == &[14, 5, 4, 3, 2] {
+        Some(Straight(5))
+    } else {
+        None
+    }
 }
 
-fn one_pair(cards: &[Card]) -> Option<Category> {
-    let cards = cards.iter().sorted();
-    let pair_value = if cards[0].value == cards[1].value {
-        cards[0].value
-    } else if cards[1].value == cards[2].value {
-        cards[1].value
-    } else if cards[2].value == cards[3].value {
-        cards[2].value
-    } else if cards[3].value == cards[4].value {
-        cards[3].value
+fn three_of_a_kind(values: &Vec<(u8, usize)>) -> Option<Category> {
+    if values.iter().map(|v| v.1).collect_vec() == [3, 1, 1] {
+        Some(ThreeOfAKind(values.into_iter().map(|v| v.0).collect()))
     } else {
-        return None;
-    };
-
-    Some(OnePair {
-        pair: pair_value,
-        kickers: cards
-            .iter()
-            .map(|c| c.value)
-            .filter(|&v| v != pair_value)
-            .sorted_by(|c1, c2| c2.cmp(&c1)),
-    })
+        None
+    }
 }
 
-fn high_card(cards: &[Card]) -> Category {
-    let kickers: Vec<_> = cards.iter().map(|c| c.value).sorted_by(
-        |c1, c2| c2.cmp(&c1),
-    );
-    HighCard { kickers: kickers }
+fn two_pair(values: &Vec<(u8, usize)>) -> Option<Category> {
+    if values.iter().map(|v| v.1).collect_vec() == [2, 2, 1] {
+        Some(TwoPair(values.into_iter().map(|v| v.0).collect()))
+    } else {
+        None
+    }
+}
+
+fn one_pair(values: &Vec<(u8, usize)>) -> Option<Category> {
+    if values.iter().map(|v| v.1).collect_vec() == [2, 1, 1, 1] {
+        Some(OnePair(values.into_iter().map(|v| v.0).collect()))
+    } else {
+        None
+    }
+}
+
+fn high_card(values: &Vec<(u8, usize)>) -> Category {
+    HighCard(values.into_iter().map(|v| v.0).collect())
 }
