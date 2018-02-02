@@ -1,3 +1,6 @@
 [package]
 name = "parallel-letter-frequency"
 version = "0.0.0"
+
+[dependencies]
+crossbeam = "*"

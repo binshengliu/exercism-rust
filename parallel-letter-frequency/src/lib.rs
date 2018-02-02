@@ -1,5 +1,6 @@
+extern crate crossbeam;
+
 use std::sync::mpsc;
-use std::thread;
 use std::collections::HashMap;
 
 pub fn frequency(input: &[&'static str], size: usize) -> HashMap<char, usize> {
@@ -13,9 +14,9 @@ pub fn frequency(input: &[&'static str], size: usize) -> HashMap<char, usize> {
     let unit = input.len() / usize::min(input.len(), size);
     for chunk in input.chunks(unit) {
         let sender = mpsc::Sender::clone(&tx);
-        let input = chunk.to_vec();
-        thread::spawn(move || sender.send(stats(input)).unwrap());
-        // workers.push(thread);
+        crossbeam::scope(|scope| {
+            scope.spawn(move || sender.send(stats(chunk)).unwrap())
+        });
     }
 
     let mut result = HashMap::new();
@@ -32,7 +33,7 @@ pub fn frequency(input: &[&'static str], size: usize) -> HashMap<char, usize> {
     result
 }
 
-fn stats(input: Vec<&'static str>) -> HashMap<char, usize> {
+fn stats(input: &[&'static str]) -> HashMap<char, usize> {
     let mut map = HashMap::new();
     for astr in input {
         for c in astr.to_lowercase().chars().filter(|c| c.is_alphabetic()) {
