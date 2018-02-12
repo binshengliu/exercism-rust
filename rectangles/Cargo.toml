@@ -1,0 +1,6 @@
+[package]
+name = "rectangles"
+version = "1.0.0"
+
+[dependencies]
+itertools = "*"
