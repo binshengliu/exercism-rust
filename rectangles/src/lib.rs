@@ -1,37 +1,81 @@
 extern crate itertools;
 use itertools::Itertools;
 
+#[derive(Debug)]
+struct Point {
+    x: usize,
+    y: usize,
+}
+
 pub fn count(input: &[&str]) -> usize {
-    let vec: Vec<Vec<usize>> = input
+    let corners: Vec<Vec<Point>> = input
         .iter()
-        .map(|line| {
+        .enumerate()
+        .map(|(row, line)| {
             line.chars()
                 .enumerate()
-                .filter_map(
-                    |(col, ch)| if ch == '+' { Some(col) } else { None },
-                )
-                .collect::<Vec<usize>>()
+                .filter_map(|(col, ch)| {
+                    if ch == '+' {
+                        Some(Point { x: row, y: col })
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<Point>>()
         })
         .collect();
 
-    print!("{:?}", vec);
-
     let mut rect = 0;
-    for line_pair in vec.iter().combinations(2) {
-        rect += check_rect(line_pair[0], line_pair[1]);
+    for row_pair in corners.iter().combinations(2) {
+        rect += find_rectangles(input, row_pair[0], row_pair[1]);
     }
 
     return rect;
 }
 
-fn check_rect(row1: &[usize], row2: &[usize]) -> usize {
+fn find_rectangles(input: &[&str], row1: &[Point], row2: &[Point]) -> usize {
     let mut rect = 0;
-    for pair1 in row1.iter().combinations(2) {
-        for pair2 in row2.iter().combinations(2) {
-            if pair1[0] == pair2[0] && pair1[1] == pair2[1] {
-                rect += 1;
+    for row1_point_pair1 in row1.iter().combinations(2) {
+        for row2_point_pair2 in row2.iter().combinations(2) {
+            if row1_point_pair1[0].y == row2_point_pair2[0].y
+                && row1_point_pair1[1].y == row2_point_pair2[1].y
+            {
+                let valid = verify_rectangle(
+                    input,
+                    row1_point_pair1[0].x,
+                    row2_point_pair2[0].x,
+                    row1_point_pair1[0].y,
+                    row1_point_pair1[1].y,
+                );
+                if valid {
+                    rect += 1;
+                }
             }
         }
     }
     return rect;
+}
+
+fn verify_rectangle(
+    input: &[&str],
+    row1: usize,
+    row2: usize,
+    col1: usize,
+    col2: usize,
+) -> bool {
+    // Check first row, second row, then first col, second col.
+    input[row1][col1 + 1..col2]
+        .chars()
+        .all(|ch| ch == '-' || ch == '+')
+        && input[row2][col1 + 1..col2]
+            .chars()
+            .all(|ch| ch == '-' || ch == '+')
+        && input[row1 + 1..row2]
+            .iter()
+            .map(|line| line.chars().nth(col1).unwrap())
+            .all(|ch| ch == '|' || ch == '+')
+        && input[row1 + 1..row2]
+            .iter()
+            .map(|line| line.chars().nth(col2).unwrap())
+            .all(|ch| ch == '|' || ch == '+')
 }

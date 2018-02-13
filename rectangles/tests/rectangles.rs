@@ -83,7 +83,6 @@ fn unit_equare() {
 }
 
 #[test]
-#[ignore]
 fn test_incomplete_rectangles() {
     let lines = vec![
         "  +-+",
